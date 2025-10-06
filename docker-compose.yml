@@ -1,0 +1,14 @@
+services:
+    bot:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: fixupx-bot
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            - NODE_ENV=production
+            - TOKEN=${TOKEN}
+        volumes:
+            - ./logs:/app/logs
