@@ -15,7 +15,17 @@ client.on('messageCreate', async (message) => {
         });
 
         if (newContent !== content) {
+            const permissions = [
+                'ManageWebhooks',
+                'ManageMessages',
+            ];
+
             try {
+                const missing = message.channel.permissionsFor(message.guild.members.me).missing(permissions);
+                if (missing.length > 0) {
+                    return;
+                }
+
                 const webhooks = await message.channel.fetchWebhooks();
                 let webhook = webhooks.find(w => w.token); 
 
@@ -24,6 +34,10 @@ client.on('messageCreate', async (message) => {
                        name: 'FixupX',
                        avatar: client.user.displayAvatarURL(),
                     });
+                }
+
+                if (message.deletable) {
+                    message.delete();
                 }
 
                 await webhook.send({
@@ -35,10 +49,6 @@ client.on('messageCreate', async (message) => {
                         name: attachment.name
                     }))
                 });
-
-                if (message.deletable) {
-                    message.delete();
-                }
             } catch (err) {
                 console.error(err);
             }
@@ -48,4 +58,4 @@ client.on('messageCreate', async (message) => {
 
 client.login(process.env.TOKEN);
 
-/* https://discord.com/oauth2/authorize?client_id=1424834006494478591&permissions=537191424&integration_type=0&scope=bot */
+/* https://discord.com/oauth2/authorize?client_id=1424834006494478591&permissions=537193472&integration_type=0&scope=bot */
