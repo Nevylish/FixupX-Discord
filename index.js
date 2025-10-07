@@ -42,8 +42,8 @@ client.on('messageCreate', async (message) => {
 
                 await webhook.send({
                     content: newContent,
-                    username: message.author.displayName,
-                    avatarURL: message.author.displayAvatarURL(),
+                    username: message.member.displayName,
+                    avatarURL: message.member.displayAvatarURL(),
                     files: message.attachments.map(attachment => ({
                         attachment: attachment.url,
                         name: attachment.name
