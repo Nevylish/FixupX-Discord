@@ -1,61 +1,74 @@
 require('dotenv').config();
 
-const Discord = require('discord.js');
-const client = new Discord.Client({ intents: ['Guilds', 'GuildMessages', 'MessageContent', 'GuildWebhooks'] });
+const {Client, ActivityType} = require('discord.js');
+const client = new Client({ intents: ['Guilds', 'GuildMessages', 'MessageContent'] });
 
-const X_STATUS_REGEX = /https?:\/\/x\.com\/([A-Za-z0-9_]+)\/status\/(\d+)/g;
+const POST_REGEX = /https?:\/\/(x|twitter)\.com\/([A-Za-z0-9_]+)\/status\/(\d+)(\S*)/g;
+
+const webhookCache = new Map();
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    let content = message.content;
+    if (message.author.bot || !message.guild) return;
 
-    if (X_STATUS_REGEX.test(content)) {
-        let newContent = content.replace(X_STATUS_REGEX, (match) => {
-            return match.replace('x.com', 'fixupx.com');
+    if (!POST_REGEX.test(message.content)) return;
+
+    POST_REGEX.lastIndex = 0;
+
+    let newContent = message.content.replace(POST_REGEX, (match) => {
+        const fixedUrl = match.replace(/(x|twitter)\.com/, 'fixupx.com');
+        console.log('Base: ' + fixedUrl + '\nAfter: ' + fixedUrl.split('?')[0])
+        return fixedUrl.split('?')[0];
+    });
+
+    if (newContent === message.content) return;
+    
+    try {
+        const permissions = ['ManageWebhooks', 'ManageMessages'];
+        const missing = message.channel.permissionsFor(message.guild.members.me).missing(permissions);
+        if (missing.length > 0) {
+            return;
+        }
+
+        let webhook = webhookCache.get(message.channel.id);
+        if (!webhook) {
+            const webhooks = await message.channel.fetchWebhooks();
+            let existingWebhook = webhooks.find(w => w.token /*w.owner.id === client.user.id*/);
+
+            if (!existingWebhook) {
+                existingWebhook = await message.channel.createWebhook({
+                    name: 'FixupX',
+                    avatar: client.user.displayAvatarURL(),
+                });
+            }
+            webhook = existingWebhook;
+            webhookCache.set(message.channel.id, webhook);
+        }
+
+        await webhook.send({
+            content: newContent,
+            username: message.member.displayName,
+            avatarURL: message.member.displayAvatarURL(),
+            files: message.attachments.map(a => a.url)
         });
 
-        if (newContent !== content) {
-            const permissions = [
-                'ManageWebhooks',
-                'ManageMessages',
-            ];
-
-            try {
-                const missing = message.channel.permissionsFor(message.guild.members.me).missing(permissions);
-                if (missing.length > 0) {
-                    return;
-                }
-
-                const webhooks = await message.channel.fetchWebhooks();
-                let webhook = webhooks.find(w => w.token); 
-
-                if (!webhook) {
-                    webhook = await message.channel.createWebhook({
-                       name: 'FixupX',
-                       avatar: client.user.displayAvatarURL(),
-                    });
-                }
-
-                if (message.deletable) {
-                    message.delete();
-                }
-
-                await webhook.send({
-                    content: newContent,
-                    username: message.member.displayName,
-                    avatarURL: message.member.displayAvatarURL(),
-                    files: message.attachments.map(attachment => ({
-                        attachment: attachment.url,
-                        name: attachment.name
-                    }))
-                });
-            } catch (err) {
-                console.error(err);
-            }
+        if (message.deletable) {
+            message.delete();
         }
+
+    } catch (err) {
+        console.error(err);
+        webhookCache.delete(message.channel.id);
     }
 });
 
-client.login(process.env.TOKEN);
+client.on('clientReady', () => {
+    const setWatchingActivity = () => {
+        client.user.setActivity('X posts', { type: ActivityType.Watching });
+    };
 
-/* https://discord.com/oauth2/authorize?client_id=1424834006494478591&permissions=537193472&integration_type=0&scope=bot */
+    setWatchingActivity();
+
+    setInterval(setWatchingActivity, 3600000);
+});
+
+client.login(process.env.TOKEN);
