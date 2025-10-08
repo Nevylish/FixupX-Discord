@@ -16,7 +16,6 @@ client.on('messageCreate', async (message) => {
 
     let newContent = message.content.replace(POST_REGEX, (match) => {
         const fixedUrl = match.replace(/(x|twitter)\.com/, 'fixupx.com');
-        console.log('Base: ' + fixedUrl + '\nAfter: ' + fixedUrl.split('?')[0])
         return fixedUrl.split('?')[0];
     });
 
